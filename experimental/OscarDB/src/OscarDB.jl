@@ -25,7 +25,7 @@ const OSCAR_DEV_DB = "oscar-dev"
 """
     Database
 
-Type for referencing a specific database (usually the `polyDB`)
+Type for referencing a specific database (usually the `OscarDB`)
 """
 struct Database
   mdb::Mongoc.Database
@@ -76,23 +76,46 @@ function get_db(;dev=false)
   return Database(client[dev ? OSCAR_DEV_DB : OSCAR_DB])
 end
 
-#TODO add examples
 """
     getindex(db::Database, name::AbstractString)
 
 Return a `Oscar.OscarDB.Collection` instance
 from `db` with the given `name`.
-Sections and collections in the name are connected with the '.' sign.
+
 # Examples
+```julia-repl
+julia> Oscar.OscarDB.get_collection_names(db)
+4-element Vector{String}:
+ "zzlattices"
+ "LeechPairs"
+ "Surfaces"
+ "TransitiveSimplicialComplexes"
+
+julia> c = db["LeechPairs"];
+
+julia> length(c)
+290
+```
 """
 Base.getindex(db::Database, name::AbstractString) = Collection(db.mdb[name])
 
 """
-    length(c::Collection{T}, d::Dict=Dict())
+    length(c::Collection, d::Dict=Dict())
 
 Count documents in a collection `c` matching the criteria given by `d`.
 
 # Examples
+
+Same as above, but faster.
+
+```julia-repl
+julia> db = Oscar.OscarDB.get_db();
+
+julia> tscit = Oscar.OscarDB.find(db["TransitiveSimplicialComplexes"], Dict("data.betti_numbers" => ["0", "0", "0", "1"]));
+
+julia> length(tscit)
+63
+```
 """
 function Base.length(c::Collection, d::Dict=Dict())
   return Base.length(c.mcol, Mongoc.BSON(d))
@@ -101,9 +124,23 @@ end
 @doc raw"""
     find(c::Collection{T}, d::Dict=Dict(); opts::Union{Nothing, Dict})
 
-Search a collection `c` for documents matching the criteria given by `d`.
+Returns an iterator over documents in the collection `c` which match the criteria given by `d`.
 Apply search options `opts`.
+
 # Examples
+
+Here we show how to find all vertex-transitive 3-dimensional rational homology spheres in that database (i.e., with up to 15 vertices). 
+
+The dimension $d$ of the manifold is here implicitly given as the length of the vector of Betti numbers less one.
+
+```julia-repl
+julia> db = Oscar.OscarDB.get_db();
+
+julia> tscit = Oscar.OscarDB.find(db["TransitiveSimplicialComplexes"], Dict("data.betti_numbers" => ["0", "0", "0", "1"]));
+
+julia> length([tsc for tsc in tscit])
+63
+```
 """
 function Mongoc.find(c::Collection, d::Dict=Dict();
                      opts::Union{Nothing, Dict}=nothing)
@@ -116,45 +153,61 @@ end
 Return one document from a collection `c` matching the criteria given by `d`.
 `T` can be chosen from `Polymake.BigObject` and `Mongoc.BSON`.
 Apply search options `opts`.
+
 # Examples
+
+Here we show how to find one vertex-transitive combinatorial surface with reduced rational Betti numbers $\tilde\beta_0 = \beta_1 = \beta_2 = 0$.
+The dimension of the manifold is here implicitly given as the length of the vector of Betti numbers less one.
+
+In this case we find the unique six-vertex triangulation of the real projective plane.
+
+```julia-repl
+julia> db = Oscar.OscarDB.get_db();
+
+julia> tsc = Oscar.OscarDB.find_one(db["TransitiveSimplicialComplexes"], Dict("data.betti_numbers" => ["0", "0", "0", "1"]));
+
+julia> n_facets(simplicial_complex(tsc))
+35
+```
 """
 function find_one(c::Collection, d::Dict=Dict(); opts::Union{Nothing, Dict}=nothing)
   p = Mongoc.find_one(c.mcol, Mongoc.BSON(d); options=(isnothing(opts) ? nothing : Mongoc.BSON(opts)))
   return isnothing(p) ? nothing : parse_document(p)
 end
 
-# not sure we need this?
-# I am guessing this is to handle when there are many different types of
-# databases.
-"""
-    load(q::String, c::String, s::Symbol = :OscarDB)
-
-Load an entry given by the query `q` in the collection `c` in the database `s`.
-Currently, only the Oscar DB (indicated by `:OscarDB`) is supported.
-"""
-# function Oscar.load(q::String, c::String, s::Symbol = :OscarDB)
-#   if s != :OscarDB
-#     println("Not implemented for non Oscar databases!")
-#     @assert s == :OscarDB
-#   end
-#   db = get_db()
-#   collection = getindex(db, c)
-#   result = OscarDB.find_one(collection, Dict("_id" => q))
-#   return result
-# end
-
-#TODO clean the docs of this function up
 """
     parse_document(bson::Mongoc.BSON)
 
 Create an Oscar object from the data given by `bson`.
 """
 function parse_document(bson::Mongoc.BSON)
-  # TODO should accept override p
+  # This is a hook for future, we would like to be able override the parent
+  # of objects on load, for example forcing an ideal to live in a certain Ring
   str = Mongoc.as_json(bson)
   return Oscar.load(IOBuffer(str))
 end
 
+"""
+    get_collection_names(db::Database)
+
+Return a `Vector{String}` containing the names of all collections in the
+OscarDB, excluding meta collections.
+# Examples
+```julia-repl
+julia> db = Oscar.OscarDB.get_db();
+
+julia> Oscar.OscarDB.get_collection_names(db)
+4-element Vector{String}:
+ "zzlattices"
+ "LeechPairs"
+ "Surfaces"
+ "TransitiveSimplicialComplexes"
+```
+"""
+function get_collection_names(db::Database)
+   opts = Mongoc.BSON("authorizedCollections" => true, "nameOnly" => true)
+   return Mongoc.get_collection_names(db.mdb;options=opts)
+end
 # Iterator
 
 Base.IteratorSize(::Type{<:Cursor}) = Base.SizeUnknown()
