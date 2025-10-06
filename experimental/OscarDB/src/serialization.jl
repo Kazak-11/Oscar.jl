@@ -80,3 +80,10 @@ type_params(stm::SmallTreeModel) = TypeParams(
   SmallTreeModel,
   group_based_phylogenetic_model(stm)
 )
+
+function save_object(s::SerializerState, stm::SmallTreeModel)
+  save_data_dict(s) do
+    save_object(s, stm._id, :model_encoding)
+    save_object(s, stm.model_type, :model_type)
+  end
+end

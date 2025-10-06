@@ -1,7 +1,6 @@
 struct SmallTreeModel
-  _id::String
-  model::GroupBasedPhylogeneticModel{PhylogeneticTree{QQFieldElem}}
-  tree::String
+  _id::String # model encoding id, example 3-0-0-JC
+  model::GroupBasedPhylogeneticModel
   model_type::String
 end
 
