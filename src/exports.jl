@@ -72,6 +72,7 @@ export EffectiveCartierDivisor
 export EllipticSurface
 export EmptyScheme
 export EnriquesBorcherdsCtx
+export FiniteRationalPointSet
 export FPGroup
 export FPGroupElem
 export FreeMod
@@ -358,6 +359,7 @@ export cartan_type
 export cartan_type_with_ordering
 export cartesian_power
 export cartier_divisor
+export castelnuovo_excess
 export catalan_solid
 export cauchy_ideal
 export cellular_associated_primes
@@ -638,6 +640,7 @@ export fibration_type
 export filtrate
 export find_morphism
 export find_morphisms
+export finite_point_set
 export fits
 export fitting_ideal
 export fitting_subgroup
@@ -887,6 +890,7 @@ export is_canonically_isomorphic_with_map
 export is_cartan_matrix
 export is_cartan_type
 export is_cartier
+export is_castelnuovo
 export is_cellular
 export is_character_table_name
 export is_characteristic_subgroup
@@ -903,6 +907,7 @@ export is_conjugate_with_data
 export is_connected
 export is_coroot
 export is_coroot_with_index
+export is_cubical
 export is_cyclic, has_is_cyclic, set_is_cyclic
 export is_degenerate
 export is_dense
@@ -981,6 +986,7 @@ export is_negative_coroot
 export is_negative_coroot_with_index
 export is_negative_root
 export is_negative_root_with_index
+export is_neighborly
 export is_nilpotent, has_is_nilpotent, set_is_nilpotent
 export is_noetherian
 export is_non_zero_divisor
@@ -1375,6 +1381,7 @@ export orthogonal_sign
 export outdegree
 export outneighbors
 export p_central_series
+export p_rump
 export pappus_matroid
 export parallel_extension
 export parametrization
@@ -1508,6 +1515,8 @@ export rank_action
 export rational_equivalence_class
 export rational_map
 export rational_point
+export rational_point_coordinates
+export rational_points
 export rational_point_conic
 export rational_solutions
 export rational_spinor_norm
@@ -1743,6 +1752,7 @@ export toric_line_bundle
 export toric_morphism
 export toric_vanishing_set
 export toric_variety
+export torsion_subgroup
 export torus # requires a distinction from e.g. an algebraic group
 export torusinvariant_cartier_divisor_group
 export torusinvariant_prime_divisors
