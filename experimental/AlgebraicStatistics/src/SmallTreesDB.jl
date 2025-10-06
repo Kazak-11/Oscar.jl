@@ -1,9 +1,3 @@
-struct SmallTreeModel
-  _id::String
-  phylogenetic_model::GroupBasedPhylogeneticModel{PhylogeneticTree{QQFieldElem}}
-  tree::String
-  model_type::String
-end
 
 @doc raw"""
     load_phylogenetic_model(tree_model_id::String)

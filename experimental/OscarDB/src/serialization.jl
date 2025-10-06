@@ -73,3 +73,10 @@ function load_object(s::DeserializerState, ::Type{TransitiveSimplicialComplex},
     )
   end
 end
+
+@register_serialization_type SmallTreeModel
+
+type_params(stm::SmallTreeModel) = TypeParams(
+  SmallTreeModel,
+  group_based_phylogenetic_model(stm)
+)
