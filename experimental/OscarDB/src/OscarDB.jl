@@ -180,6 +180,7 @@ include("exports.jl")
 
 include("LeechPairs.jl")
 include("TransitiveSimplicialComplex.jl")
+include("SmallTreeModel.jl")
 include("serialization.jl")
 
 
