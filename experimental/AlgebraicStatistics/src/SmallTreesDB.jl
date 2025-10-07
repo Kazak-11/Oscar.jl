@@ -1,4 +1,3 @@
-
 @doc raw"""
     load_phylogenetic_model(tree_model_id::String)
 

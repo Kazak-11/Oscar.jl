@@ -85,5 +85,13 @@ function save_object(s::SerializerState, stm::SmallTreeModel)
   save_data_dict(s) do
     save_object(s, stm._id, :model_encoding)
     save_object(s, stm.model_type, :model_type)
+    save_object(s, stm.n_leaves, :n_leaves)
   end
+end
+
+function load_object(s::DeserializerState, ::Type{SmallTreeModel}, pm::GroupBasedPhylogeneticModel)
+  return SmallTreeModel(
+    load_object(s, String, :model_encoding),
+    pm
+  )
 end
