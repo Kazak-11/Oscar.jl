@@ -13,7 +13,8 @@ import Oscar:
   automorphism_group,
   homology,
   betti_numbers,
-  n_vertices
+  n_vertices,
+  graph
 
 # for ca certificates
 import NetworkOptions
@@ -213,15 +214,30 @@ end
 Base.IteratorSize(::Type{<:Cursor}) = Base.SizeUnknown()
 Base.IteratorSize(::Type{<:Collection}) = Base.SizeUnknown()
 
-# functions for `BSON` iteration
-Base.iterate(cursor::Cursor, state::Nothing=nothing) =
-  iterate(cursor.mcursor, state)
+function Base.iterate(cursor::Cursor, state::Nothing=nothing)
+    next = iterate(cursor.mcursor, state)
+    isnothing(next) && return nothing
+    return parse_document(first(next)), nothing
+end
 
 Base.iterate(coll::Collection) =
-  iterate(coll.mcol)
+    return iterate(coll, find(coll))
 
-Base.iterate(coll::Collection, state::Mongoc.Cursor) =
-  iterate(coll.mcol, state)
+function Base.iterate(coll::Collection, state::Cursor)
+    next = iterate(state, nothing)
+    isnothing(next) && return nothing
+    doc, _ = next
+    return doc, state
+end
+
+# Base.iterate(cursor::Cursor, state::Nothing=nothing) =
+#   iterate(cursor.mcursor, state)
+# 
+# Base.iterate(coll::Collection) =
+#   iterate(coll.mcol)
+# 
+# Base.iterate(coll::Collection, state::Mongoc.Cursor) =
+#   iterate(coll.mcol, state)
 
 # shows information about a specific Collection
 function Base.show(io::IO, coll::Collection)
