@@ -1,8 +1,6 @@
 ################################################################################
 # Common union types
 
-const RingMatElemUnion = Union{NCRingElem, MatElem, SMat}
-const RingMatSpaceUnion = Union{NCRing, MatSpace, SMatSpace}
 const ModRingUnion = Union{zzModRing, ZZModRing}
 const ModRingElemUnion = Union{zzModRingElem, ZZModRingElem}
 
@@ -31,14 +29,41 @@ const LaurentUnionType = Union{Generic.LaurentSeriesRing,
 ################################################################################
 # type_params functions
 
-type_params(x::T) where T <: RingMatElemUnion = TypeParams(T, parent(x))
-type_params(R::T) where T <: RingMatSpaceUnion = TypeParams(T, base_ring(R))
-type_params(x::T) where T <: Ideal = TypeParams(T, base_ring(x))
-# exclude from ring union
-type_params(::ZZRing) = TypeParams(ZZRing, nothing)
-type_params(::ZZRingElem) = TypeParams(ZZRingElem, nothing)
-type_params(R::T) where T <: PolyRingUnionType = TypeParams(T, coefficient_ring(R))
-type_params(R::T) where T <: ModRingUnion = TypeParams(T, nothing)
+# The default `type_params` for many objects consists of a "reference object",
+# such as a parent or base_ring or coefficient_ring. But if that is either a
+# singleton (such as `ZZ` or `QQ`), or if there is no such object (e.g. `ZZ`
+# has no `base_ring`), then this delegation makes no sense.
+#
+# This helper handles these common base generically: if the reference object
+# does not exist (has type `Union{}`) or is a singleton then it instead uses
+# `nothing` as reference.
+function default_type_params(x::T, data, data_type) where T
+  U = data_type(T)
+  # in the new model, absence of a base_ring etc. is indicated by
+  # base_ring_type returning Union{}; in the old model, it returns
+  # typeof(Union{}), which is a singleton type. Both are caught by the
+  # following condition, as are rings which are singletons.
+  # see also <https://github.com/Nemocas/AbstractAlgebra.jl/pull/2144>
+  if U === Union{} || Base.issingletontype(U)
+    return TypeParams(T, nothing)
+  else
+    return TypeParams(T, data(x))
+  end
+end
+
+# element types by default use their parent as reference object
+type_params(x::T) where T <: AbstractAlgebra.SetElem = default_type_params(x, parent, parent_type)
+type_params(x::T) where T <: SMat = default_type_params(x, parent, parent_type)
+
+# polynomial-like rings use their coefficient ring as reference object
+type_params(x::T) where T <: PolyRingUnionType = TypeParams(T, default_type_params(x, coefficient_ring, coefficient_ring_type))
+
+# other rings, matrix spaces and ideals by default use their base_ring as reference object
+type_params(x::T) where T <: NCRing = default_type_params(x, base_ring, base_ring_type)
+type_params(x::T) where T <: MatSpace = default_type_params(x, base_ring, base_ring_type)
+type_params(x::T) where T <: SMatSpace = default_type_params(x, base_ring, base_ring_type)
+type_params(x::T) where T <: Ideal = default_type_params(x, base_ring, base_ring_type)
+
 
 ################################################################################
 # ring of integers (singleton type)
