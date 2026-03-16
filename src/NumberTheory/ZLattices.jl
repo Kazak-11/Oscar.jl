@@ -52,21 +52,21 @@ function _get_edge_labeled_graph(char_vectors_set, gram_matrix)
     b = a + 1
     p = number_of_columns(B)
     graph_dict = Dict()
-    tmp = 0
+    weight = 0
     for j = [1; p+2]
         for i = [1; j]
             if i < j && j <= p
-                tmp = Ga_matrix[i,j]
+                weight = Ga_matrix[i,j]
             elseif i <= j
                 if j == p + 1
-                    tmp = Ga_matrix[i,i]
+                    weight = Ga_matrix[i,i]
                 else 
-                    tmp = a
+                    weight = a
                 end
             elseif i == p + 1 && j == p + 2
-                tmp = b
+                weight = b
             end
-            push!(graph_dict, (i,j)=>tmp)
+            merge!(graph_dict, (i,j)=>weight)
         end
     end
 
@@ -96,7 +96,9 @@ function canonical_form(L::ZZLat)
     end 
     T1_graph = _get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
     T2_graph =  _edge_label_to_vertex_label(T1_graph, label = :weight) # transform from T1(Ga) to vertex weighted graph T2(T1(Ga))
+    p = length(char_vectors_set)
     can_order = _canonical_perm(T2_graph, label = :weight) # get canonical ordering of T2(T1(Ga))
+    w = lastindex(can_order)/(p+2)
     lift_canonical_ordering = (i, j) => _lift_canonical_ordering(i, j, w, can_order)
     return _get_canonical_form(A, char_vectors_set, lift_canonical_ordering)
 end
