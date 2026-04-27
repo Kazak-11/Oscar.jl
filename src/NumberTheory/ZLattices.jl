@@ -202,3 +202,62 @@ function characteristic_vectors(L::ZZLat)
   @hassert :Lattice 1 isone(hnf(reduce(vcat, cvL))[1:rank(L),:])
   return cvL
 end
+
+function _lift_canonical_ordering(i, j, w, can_order) 
+    can_i = find(can_order .== (1+(w-1)*(i-1)))[0] # returnes index of min Si = (i,0) in canonical ordering 
+    can_j = find(can_order .== (1+(w-1)*(j-1)))[0]
+    return can_i < can_j
+end
+
+function _get_canonical_form(A, char_vectors_set, canonical_ordering)
+    can_char_vectors_set = sort(char_vectors_set, canonical_ordering)
+    (H, U) = hnf_with_transform(can_char_vectors_set)
+    return U*A*transpose*U
+end
+
+function _get_edge_labeled_graph(cv_set, gram)
+  p = length(cv_set)
+  res_graph = graph(Undirected, p+2);
+  max_w = QQ(0)
+  weightDict= Dict{Tuple{Int64, Int64}, QQFieldElem,}()
+  for i = 1:p 
+    for j = i+1:p
+
+      w = (cv_set[i]*gram*transpose(cv_set[j]))[1]
+      if w>max_w
+        max_w = w
+      end
+      add_edge!(res_graph, i, j)
+      merge!(weightDict, Dict((i, j) => w))
+    end
+    add_edge!(res_graph, i, p+1)
+  end
+  a = 1+max_w 
+  b = a + 1
+  for i = 1:p 
+    add_edge!(res_graph, i, p+2)
+    merge!(weightDict, Dict((i, p+2) => a))
+  end
+  add_edge!(res_graph, p+1, p+2)
+  merge!(weightDict, Dict((p+1, p+2) => b))
+  label!(res_graph, weightDict, nothing; name=:edge)
+  return res_graph
+end
+
+function canonical_form(L::ZZLat)
+    gram = gram_matrix(L)
+    n = dim(ambient_space(L))
+    if n>=2
+        char_vectors_set = _char_vectors_set(L)
+    elseif n>=5 #maybe it will be removed or condition made higher due to performance
+        char_vectors_set = _vor_vectors_set()
+    end 
+    graph = _get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
+    # to do - transform from T1(Ga) to vertex weighted graph T2(T1(Ga))
+    # to do - get canonical ordering of T2(T1(Ga))
+
+    T2 = _edge_label_to_vertex_label(graph, :edge)
+    can_order = _canonical_perm(T2; label=:edge_to_vertex)
+    lift_canonical_ordering = (i, j) => _lift_canonical_ordering(i, j, w, can_order)
+    return _get_canonical_form(A, char_vectors_set, lift_canonical_ordering)
+end
