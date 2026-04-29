@@ -210,9 +210,14 @@ function _lift_canonical_ordering(i, j, w, can_order)
 end
 
 function _get_canonical_form(A, char_vectors_set, canonical_ordering)
-    can_char_vectors_set = sort(char_vectors_set, canonical_ordering)
+    #can_char_vectors_set = sort(char_vectors_set, lt = canonical_ordering)
+    p = length(char_vectors_set)
+    filter!(e->e!=p+1 && e!=p+2, canonical_ordering)
+    can_char_vectors_set = reduce(hcat, char_vectors_set[canonical_ordering])
+    @info can_char_vectors_set
     (H, U) = hnf_with_transform(can_char_vectors_set)
-    return U*A*transpose*U
+    @info U
+    return U*A*transpose(U)
 end
 
 function _get_edge_labeled_graph(cv_set, gram)
@@ -256,8 +261,8 @@ function canonical_form(L::ZZLat)
     # to do - transform from T1(Ga) to vertex weighted graph T2(T1(Ga))
     # to do - get canonical ordering of T2(T1(Ga))
 
-    T2 = _edge_label_to_vertex_label(graph, :edge)
-    can_order = _canonical_perm(T2; label=:edge_to_vertex)
-    lift_canonical_ordering = (i, j) => _lift_canonical_ordering(i, j, w, can_order)
-    return _get_canonical_form(A, char_vectors_set, lift_canonical_ordering)
+    # T2 = _edge_label_to_vertex_label(graph, :edge)
+    can_order = _canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
+    #lift_canonical_ordering = (i, j) => _lift_canonical_ordering(i, j, w, can_order)
+    return _get_canonical_form(A, char_vectors_set, can_order)
 end
