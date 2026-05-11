@@ -18,7 +18,7 @@ end
   U = hnf_with_transform(matrix(ZZ,n,n,rand(0:1,n^2)))[2];
   L1 = integer_lattice(gram = G1);
   L2 = integer_lattice(gram = G2);
-  L3 = lattice_in_same_ambient_space(L1,U*basis_matrix(L))
+  L3 = lattice_in_same_ambient_space(L1,U*basis_matrix(L1))
   @test canonical_form(L1) != canonical_form(L2)
   @test canonical_form(L1) != canonical_form(L3)
 end
