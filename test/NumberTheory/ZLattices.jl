@@ -20,5 +20,17 @@ end
   L2 = integer_lattice(gram = G2);
   L3 = lattice_in_same_ambient_space(L1,U*basis_matrix(L1))
   @test canonical_form(L1) != canonical_form(L2)
-  @test canonical_form(L1) != canonical_form(L3)
+  @test canonical_form(L1) == canonical_form(L3)
+
+
+  matrix1 = [2,1,-1,1,1,0,0,0,0,-1,2,-1,0,0,0,0,0,0,-1,2,0,0,0,0,0,0,0,2,1,0,0,0,0,-1,2,0,0,0,0,-1,4,-2,2,2,0,4,-2,-2,0,4,0,0,4,0,4]
+  matrix2 = [2,1,1,-1,-1,1,-1,1,-1,-1,2,0,-1,-1,1,-1,1,-1,0,4,-2,1,2,-2,-1,-1,0,4,1,-2,2,1,2,1,4,1,-1,0,0,1,4,-2,1,-2,-1,4,-1,2,1,4,0,-1,4,1,4]
+  G1 = matrix(QQ, n, n, matrix1)
+  G2 = matrix(QQ, n, n, matrix2)
+  U = hnf_with_transform(matrix(ZZ,n,n,rand(0:1,n^2)))[2];
+  L1 = integer_lattice(gram = G1);
+  L2 = integer_lattice(gram = G2);
+  L3 = lattice_in_same_ambient_space(L1,U*basis_matrix(L1))
+  @test canonical_form(L1) != canonical_form(L2)
+  @test canonical_form(L1) == canonical_form(L3)
 end
