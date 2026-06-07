@@ -203,24 +203,13 @@ function characteristic_vectors(L::ZZLat)
   return cvL
 end
 
-function _lift_canonical_ordering(i, j, w, can_order) 
-    can_i = find(can_order .== (1+(w-1)*(i-1)))[0] # returnes index of min Si = (i,0) in canonical ordering 
-    can_j = find(can_order .== (1+(w-1)*(j-1)))[0]
-    return can_i < can_j
-end
-
 function _get_canonical_form(A, char_vectors_set, canonical_ordering)
-    #can_char_vectors_set = sort(char_vectors_set, lt = canonical_ordering)
     p = length(char_vectors_set)
     filter!(e->e!=p+1 && e!=p+2, canonical_ordering)
-    can_char_vectors_set = reduce(hcat, char_vectors_set[canonical_ordering])
-    #sort!(char_vectors_set, lt=canonical_ordering)
-    (H, U) = hnf_with_transform(can_char_vectors_set)
-    if number_of_rows(U) == 1 && number_of_columns(U) == 1
-      return A
-    else
-      return U*A*transpose(U)
-    end
+    can_char_vectors_set = transpose(matrix(ZZ, reduce(vcat, char_vectors_set[canonical_ordering])))
+    (H, U) = hnf_with_transform(can_char_vectors_set) 
+    U_inv = inv(U)
+    return transpose(U_inv)*A*U_inv
 end
 
 function _get_edge_labeled_graph(cv_set, gram)
@@ -248,26 +237,24 @@ function _get_edge_labeled_graph(cv_set, gram)
   end
   add_edge!(res_graph, p+1, p+2)
   merge!(weightDict, Dict((p+1, p+2) => b))
-  w = round(log2(length(collect(values(weightDict)))), RoundUp)
   label!(res_graph, weightDict, nothing; name=:edge)
-  
-  return (res_graph, w)
+  return res_graph
 end
 
 function canonical_form(L::ZZLat)
     gram = gram_matrix(L)
     n = dim(ambient_space(L))
     #if n>=2
-        char_vectors_set = Oscar.characteristic_vectors(L)
+    @info "canonical form algo start"
+    @info "char vectors time"
+    @time char_vectors_set = Oscar.characteristic_vectors(L)
     #elseif n>=5 #maybe it will be removed or condition made higher due to performance
     #    char_vectors_set = _vor_vectors_set()
     #end 
-    (graph, w) = Oscar._get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
-    # to do - transform from T1(Ga) to vertex weighted graph T2(T1(Ga))
-    # to do - get canonical ordering of T2(T1(Ga))
-
-    # T2 = _edge_label_to_vertex_label(graph, :edge)
-    can_order = Oscar._canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
-    #lift_canonical_ordering = (i, j) -> _lift_canonical_ordering(i, j, w, can_order)
+    @info "graph time"
+    @time graph = Oscar._get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
+    @info "can order time"
+    @time can_order = Oscar._canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
+    @info "---------------"
     return Oscar._get_canonical_form(gram, char_vectors_set, can_order)
 end
