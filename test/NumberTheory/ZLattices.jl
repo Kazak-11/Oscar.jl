@@ -48,6 +48,13 @@ end
   L1 = integer_lattice(gram = G1);
   L2 = integer_lattice(gram = G2);
   L3 = lattice_in_same_ambient_space(L1,U*basis_matrix(L1));
-  #@test canonical_form(L1) != canonical_form(L2)
+  @info "first try of long calcs"
+  @test canonical_form(L1) != canonical_form(L2)
+  @info "second try of long calcs"
+  @test canonical_form(L1) != canonical_form(L2)
   @test canonical_form(L1) == canonical_form(L3)
+  @info "is_isometric_with_isometry 1"
+  @time is_isometric_with_isometry(L1, L2)
+  @info "is_isometric_with_isometry 2"
+  @time is_isometric_with_isometry(L1, L2)
 end

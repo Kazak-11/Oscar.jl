@@ -243,14 +243,9 @@ end
 
 function canonical_form(L::ZZLat)
     gram = gram_matrix(L)
-    n = dim(ambient_space(L))
-    #if n>=2
     @info "canonical form algo start"
     @info "char vectors time"
     @time char_vectors_set = Oscar.characteristic_vectors(L)
-    #elseif n>=5 #maybe it will be removed or condition made higher due to performance
-    #    char_vectors_set = _vor_vectors_set()
-    #end 
     @info "graph time"
     @time graph = Oscar._get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
     @info "can order time"
