@@ -249,6 +249,32 @@ function _get_edge_labeled_graph(cv_set, gram)
   label!(res_graph, weightDict, nothing; name=:edge)
   return res_graph
 end
+
+function _reduce_characteristic_vectors(cv_set, L::ZZLat)
+  R, types, irreducibles = root_lattice_recognition_fundamental(L)
+  B = basis_matrix(R)
+  @info "B" B
+  res = []
+  for v in cv_set
+    in_chamber = true
+    for i in 1:number_of_rows(B)
+      fundamental_root = B[i,:]
+      x = fundamental_root*gram_matrix(L)*transpose(v)
+      if x[1] < 0
+        in_chamber = false
+      end
+    end
+    if in_chamber
+      push!(res, v)
+    end
+  end 
+  for i in 1:number_of_rows(B)
+      fundamental_root = matrix(ZZ, number_of_columns(B), 1, B[i,:])
+      #push!(res, fundamental_root)
+    end
+  return res
+end
+
 """
     canonical_form(L::ZZLat) -> ZZMatrix
     
@@ -263,6 +289,9 @@ We follow ideas of Sikirić, Haensch, Voight and van Woerden [SHVW20](@cite).
 function canonical_form(L::ZZLat)
   gram = gram_matrix(L)
   char_vectors_set = Oscar.characteristic_vectors(L)
+  @info "cv set" char_vectors_set
+  char_vectors_set = Oscar._reduce_characteristic_vectors(char_vectors_set, L)
+  @info "cv set reduced" char_vectors_set
   graph = Oscar._get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
   can_order = Oscar._canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
   return Oscar._get_canonical_form(gram, char_vectors_set, can_order)
