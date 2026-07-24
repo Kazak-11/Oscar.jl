@@ -212,31 +212,42 @@ function characteristic_vectors(L::ZZLat)
   return cvL
 end
 
-function _get_canonical_form(A, char_vectors_set, canonical_ordering)
+function _get_canonical_form(A::ZZMatrix, char_vectors_set::Vector{ZZMatrix}, canonical_ordering::Vector{Int})::ZZMatrix
   p = length(char_vectors_set)
   filter!(e->e!=p+1 && e!=p+2, canonical_ordering)
+  @info "canonical_ordering" canonical_ordering
+  @info "char_vectors_set" char_vectors_set
+  @info "char_vectors_set[canonical_ordering]" char_vectors_set[canonical_ordering]
+  @info "reduce(vcat, char_vectors_set[canonical_ordering])" reduce(vcat, char_vectors_set[canonical_ordering])
   can_char_vectors_set = transpose(matrix(ZZ, reduce(vcat, char_vectors_set[canonical_ordering])))
-  (H, U) = hnf_with_transform(can_char_vectors_set) 
+  _, U = hnf_with_transform(can_char_vectors_set) 
   U_inv = inv(U)
   return transpose(U_inv)*A*U_inv
 end
 
-function _get_edge_labeled_graph(cv_set, gram)
+function _get_edge_labeled_graph(cv_set::Vector{ZZMatrix}, gram::ZZMatrix)::Graph{Undirected}
   p = length(cv_set)
-  res_graph = graph(Undirected, p+2);
-  max_w = QQ(0)
+  res_graph = graph(Undirected, p+2)
+  max_w = QQ(0) # we need to use QQ element, as graph can be created only with this type of weights
   weightDict= Dict{Tuple{Int64, Int64}, QQFieldElem,}()
+  v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
+  t_i = zero_matrix(ZZ, number_of_rows(gram), 1)
+  w_i = zero_matrix(ZZ, 1, 1)
   for i = 1:p 
+    mul!(v_i, cv_set[i], gram)
     for j = i+1:p
-
-      w = (cv_set[i]*gram*transpose(cv_set[j]))[1]
+      mul!(w_i, v_i, transpose!(t_i, cv_set[j]))
+      w = Int64(w_i[1])
       if w>max_w
         max_w = w
       end
       add_edge!(res_graph, i, j)
-      merge!(weightDict, Dict((i, j) => w))
+      weightDict[(i, j)] = w
     end
     add_edge!(res_graph, i, p+1)
+    mul!(w_i, v_i, transpose!(t_i, cv_set[i]))
+    w = Int64(w_i[1])
+    weightDict[(i, p+1)] = w
   end
   a = 1+max_w 
   b = a + 1
@@ -250,16 +261,17 @@ function _get_edge_labeled_graph(cv_set, gram)
   return res_graph
 end
 
+
 function _reduce_characteristic_vectors(cv_set, L::ZZLat)
-  R, types, irreducibles = root_lattice_recognition_fundamental(L)
+  R, _, _ = root_lattice_recognition_fundamental(L)
   B = basis_matrix(R)
   @info "B" B
-  res = []
+  res::Vector{ZZMatrix} = []
   for v in cv_set
     in_chamber = true
     for i in 1:number_of_rows(B)
-      fundamental_root = B[i,:]
-      x = fundamental_root*gram_matrix(L)*transpose(v)
+      fundamental_root = matrix(ZZ, number_of_columns(B), 1, B[i,:])
+      x = v*gram_matrix(L)*fundamental_root
       if x[1] < 0
         in_chamber = false
       end
@@ -269,15 +281,14 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
     end
   end 
   for i in 1:number_of_rows(B)
-      fundamental_root = matrix(ZZ, number_of_columns(B), 1, B[i,:])
-      #push!(res, fundamental_root)
+      fundamental_root = transpose(matrix(ZZ, number_of_columns(B), 1, B[i,:]))
+      push!(res, fundamental_root)
     end
   return res
 end
 
 """
     canonical_form(L::ZZLat) -> ZZMatrix
-    
 Return the canonical form of ``L``. The form is canonical in the sense, that two isomorphic latticies would have the same canonical form.
 
 We follow ideas of Sikirić, Haensch, Voight and van Woerden [SHVW20](@cite).
@@ -286,13 +297,11 @@ We follow ideas of Sikirić, Haensch, Voight and van Woerden [SHVW20](@cite).
     We do not give any guarantees that the canonical form stays the same 
     between different versions of Oscar.
 """
-function canonical_form(L::ZZLat)
-  gram = gram_matrix(L)
-  char_vectors_set = Oscar.characteristic_vectors(L)
-  @info "cv set" char_vectors_set
-  char_vectors_set = Oscar._reduce_characteristic_vectors(char_vectors_set, L)
-  @info "cv set reduced" char_vectors_set
-  graph = Oscar._get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
-  can_order = Oscar._canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
-  return Oscar._get_canonical_form(gram, char_vectors_set, can_order)
+function canonical_form(L::ZZLat)::ZZMatrix
+  gram = matrix(ZZ, gram_matrix(L))
+  char_vectors_set = characteristic_vectors(L)
+  char_vectors_set = _reduce_characteristic_vectors(char_vectors_set, L)
+  graph = _get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
+  can_order = _canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
+  return _get_canonical_form(gram, char_vectors_set, can_order)
 end
