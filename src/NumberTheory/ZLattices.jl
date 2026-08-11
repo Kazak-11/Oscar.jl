@@ -215,10 +215,10 @@ end
 function _get_canonical_form(A::ZZMatrix, char_vectors_set::Vector{ZZMatrix}, canonical_ordering::Vector{Int})::ZZMatrix
   p = length(char_vectors_set)
   filter!(e->e!=p+1 && e!=p+2, canonical_ordering)
-  @info "canonical_ordering" canonical_ordering
-  @info "char_vectors_set" char_vectors_set
-  @info "char_vectors_set[canonical_ordering]" char_vectors_set[canonical_ordering]
-  @info "reduce(vcat, char_vectors_set[canonical_ordering])" reduce(vcat, char_vectors_set[canonical_ordering])
+  #@info "canonical_ordering" canonical_ordering
+  #@info "char_vectors_set" char_vectors_set
+  #@info "char_vectors_set[canonical_ordering]" char_vectors_set[canonical_ordering]
+  #@info "reduce(vcat, char_vectors_set[canonical_ordering])" reduce(vcat, char_vectors_set[canonical_ordering])
   can_char_vectors_set = transpose(matrix(ZZ, reduce(vcat, char_vectors_set[canonical_ordering])))
   _, U = hnf_with_transform(can_char_vectors_set) 
   U_inv = inv(U)
@@ -264,13 +264,18 @@ end
 
 function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   R, _, _ = root_lattice_recognition_fundamental(L)
-  B = basis_matrix(R)
-  @info "B" B
+  A = basis_matrix(R)
+  B_lat = basis_matrix(L)
+  A_lat = A*inv(B_lat)  #need to change to solve, as lattice may have rectangular basis matrix
   res::Vector{ZZMatrix} = []
   for v in cv_set
+    v_length = v*gram_matrix(L)*transpose(v)
+    if v_length[1] == 1 || v_length[1] == 2
+      continue
+    end
     in_chamber = true
-    for i in 1:number_of_rows(B)
-      fundamental_root = matrix(ZZ, number_of_columns(B), 1, B[i,:])
+    for i in 1:number_of_rows(A_lat)
+      fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
       x = v*gram_matrix(L)*fundamental_root
       if x[1] < 0
         in_chamber = false
@@ -280,8 +285,8 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
       push!(res, v)
     end
   end 
-  for i in 1:number_of_rows(B)
-      fundamental_root = transpose(matrix(ZZ, number_of_columns(B), 1, B[i,:]))
+  for i in 1:number_of_rows(A_lat)
+      fundamental_root = transpose(matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:]))
       push!(res, fundamental_root)
     end
   return res
@@ -300,7 +305,9 @@ We follow ideas of Sikirić, Haensch, Voight and van Woerden [SHVW20](@cite).
 function canonical_form(L::ZZLat)::ZZMatrix
   gram = matrix(ZZ, gram_matrix(L))
   char_vectors_set = characteristic_vectors(L)
+  @info "canonical_form: number of characteristic vectors" length(char_vectors_set)
   char_vectors_set = _reduce_characteristic_vectors(char_vectors_set, L)
+  @info "canonical_form: number of characteristic vectors after reduction" length(char_vectors_set)
   graph = _get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
   can_order = _canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
   return _get_canonical_form(gram, char_vectors_set, can_order)
