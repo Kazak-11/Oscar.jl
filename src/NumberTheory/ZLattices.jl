@@ -266,7 +266,7 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   R, _, _ = root_lattice_recognition_fundamental(L)
   A = basis_matrix(R)
   B_lat = basis_matrix(L)
-  A_lat = A*inv(B_lat)  #need to change to solve, as lattice may have rectangular basis matrix
+  A_lat = solve(B_lat, A)
   res::Vector{ZZMatrix} = []
   for v in cv_set
     v_length = v*gram_matrix(L)*transpose(v)
