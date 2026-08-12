@@ -265,22 +265,34 @@ end
 function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   R, _, _ = root_lattice_recognition_fundamental(L)
   A = basis_matrix(R)
+  gram = matrix(ZZ, gram_matrix(L))
   B_lat = basis_matrix(L)
   A_lat = solve(B_lat, A)
-  v_i = zero_matrix(ZZ, 1, number_of_columns(gram_matrix(L)))
-  t_i = zero_matrix(ZZ, number_of_rows(gram_matrix(L)), 1)
+  v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
+  w_i = zero_matrix(ZZ, 1, number_of_columns(gram))
+  t_i = zero_matrix(ZZ, number_of_columns(gram), 1)
   res::Vector{ZZMatrix} = []
+  #n = maximum(v -> (mul!(v_i, v, gram); mul!(v_i, v_i, transpose(v)); v_i[1]), cv_set)
+  n = maximum(v -> (v*gram*transpose(v))[1], cv_set)
+  if n^2 < typemax(Int)
+    usedMul! = mul!
+  else 
+    usedMul! = LinearAlgebra.mul!
+  end
   for v in cv_set
-    w = v*gram_matrix(L)
-    v_length = w*transpose(v)
-    if v_length[1] == 1 || v_length[1] == 2
+    usedMul!(w_i, v, gram)
+    #w = v*gram_matrix(L)
+    usedMul!(v_i, w_i, transpose(v))
+    #v_i = w*transpose(v)
+    if v_i[1] == 1 || v_i[1] == 2
       continue
     end
     in_chamber = true
     for i in 1:number_of_rows(A_lat)
       fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
-      x = w*fundamental_root
-      if x[1] < 0
+      usedMul!(v_i, w_i, fundamental_root)
+      #x = w*fundamental_root
+      if v_i[1] < 0
         in_chamber = false
       end
     end
