@@ -271,8 +271,9 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
   w_i = zero_matrix(ZZ, 1, number_of_columns(gram))
   t_i = zero_matrix(ZZ, number_of_columns(gram), 1)
+  fundamental_root = zero_matrix(ZZ, number_of_columns(A_lat), 1)
   res::Vector{ZZMatrix} = []
-  #n = maximum(v -> (mul!(v_i, v, gram); mul!(v_i, v_i, transpose(v)); v_i[1]), cv_set)
+  #n = maximum(v -> (mul!(v_i, v, gram); mul!(v_i, v_i, transpose!(t_i, v)); return v_i[1]), cv_set)
   n = maximum(v -> (v*gram*transpose(v))[1], cv_set)
   if n^2 < typemax(Int)
     usedMul! = mul!
@@ -282,14 +283,17 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   for v in cv_set
     usedMul!(w_i, v, gram)
     #w = v*gram_matrix(L)
-    usedMul!(v_i, w_i, transpose(v))
+    usedMul!(v_i, w_i, transpose!(t_i, v))
     #v_i = w*transpose(v)
     if v_i[1] == 1 || v_i[1] == 2
       continue
     end
     in_chamber = true
     for i in 1:number_of_rows(A_lat)
-      fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
+      for j in 1:number_of_columns(A_lat)
+        fundamental_root[j,1] = ZZ(A_lat[i,j])
+      end
+      #fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
       usedMul!(v_i, w_i, fundamental_root)
       #x = w*fundamental_root
       if v_i[1] < 0
@@ -299,11 +303,11 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
     if in_chamber
       push!(res, v)
     end
-  end 
+  end
   for i in 1:number_of_rows(A_lat)
-      fundamental_root = transpose(matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:]))
-      push!(res, fundamental_root)
-    end
+    fundamental_root = matrix(ZZ, 1, number_of_columns(A_lat), A_lat[i,:])
+    push!(res, fundamental_root)
+  end
   return res
 end
 
