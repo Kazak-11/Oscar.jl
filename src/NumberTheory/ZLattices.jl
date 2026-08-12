@@ -267,16 +267,19 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
   A = basis_matrix(R)
   B_lat = basis_matrix(L)
   A_lat = solve(B_lat, A)
+  v_i = zero_matrix(ZZ, 1, number_of_columns(gram_matrix(L)))
+  t_i = zero_matrix(ZZ, number_of_rows(gram_matrix(L)), 1)
   res::Vector{ZZMatrix} = []
   for v in cv_set
-    v_length = v*gram_matrix(L)*transpose(v)
+    w = v*gram_matrix(L)
+    v_length = w*transpose(v)
     if v_length[1] == 1 || v_length[1] == 2
       continue
     end
     in_chamber = true
     for i in 1:number_of_rows(A_lat)
       fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
-      x = v*gram_matrix(L)*fundamental_root
+      x = w*fundamental_root
       if x[1] < 0
         in_chamber = false
       end
