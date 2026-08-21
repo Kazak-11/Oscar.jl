@@ -225,78 +225,92 @@ function _get_canonical_form(A::ZZMatrix, char_vectors_set::Vector{ZZMatrix}, ca
   return transpose(U_inv)*A*U_inv
 end
 
-function _get_edge_labeled_graph(cv_set::Vector{ZZMatrix}, gram::ZZMatrix)::Graph{Undirected}
+function _convert_cv_set_to_int(cv_set::Vector{ZZMatrix}, gram::ZZMatrix)
+  tmp = ZZ(0)
+  n = ZZ(0)
+  tmp1 = zero_matrix(ZZ, 1, number_of_columns(gram))
+  tmp2 = zero_matrix(ZZ, number_of_rows(gram), 1)
+  tmp3 = zero_matrix(ZZ, 1, 1)
+  for v in cv_set
+    tmp1 = mul!(tmp1, v, gram)
+    tmp3 = mul!(tmp3, tmp1, transpose!(tmp2, v))
+    n = max(n, tmp3[1])
+  end
+  if n-2 < ZZ(typemax(Int)) # we use Cauchy-Schwarz to check if char vector inner products are small enough to be converted to Int. As we need at least w_max+1 and w_max+2 weights further, we need to lower bound by -2.
+    cv_set_int = [Hecke._int_matrix_with_overflow(v, tmp) for v in cv_set]
+  else 
+    throw(OverflowError("The characteristic vectors have to large inner products to be converted to Int."))
+  end
+  return cv_set_int
+end
+
+_get_edge_labeled_graph(cv_set::Vector{Matrix{Int}}, gram::ZZMatrix) = _get_edge_labeled_graph(cv_set, Hecke._int_matrix_with_overflow(gram, ZZ(0)))
+_get_edge_labeled_graph(cv_set::Vector{ZZMatrix}, gram::ZZMatrix) = _get_edge_labeled_graph(_convert_cv_set_to_int(cv_set, gram), Hecke._int_matrix_with_overflow(gram, ZZ(0)))
+
+function _get_edge_labeled_graph(cv_set::Vector{Matrix{Int}}, gram::Matrix{Int})
   p = length(cv_set)
   res_graph = graph(Undirected, p+2)
-  max_w = QQ(0) # we need to use QQ element, as graph can be created only with this type of weights
-  weightDict= Dict{Tuple{Int64, Int64}, QQFieldElem,}()
-  v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
-  t_i = zero_matrix(ZZ, number_of_rows(gram), 1)
-  w_i = zero_matrix(ZZ, 1, 1)
+  max_w = 0
+  label!(res_graph, Dict{Tuple{Int, Int}, Int,}(), nothing; name=:edge)
+  v_i = Matrix{Int}(undef, 1, number_of_columns(gram))
+  t_i = Matrix{Int}(undef, number_of_rows(gram), 1)
+  w_i = Matrix{Int}(undef, 1, 1)
   for i = 1:p 
-    mul!(v_i, cv_set[i], gram)
+    v_i = AbstractAlgebra.LinearAlgebra.mul!(v_i, cv_set[i], gram)
     for j = i+1:p
-      mul!(w_i, v_i, transpose!(t_i, cv_set[j]))
-      w = Int64(w_i[1])
-      if w>max_w
-        max_w = w
-      end
+      w_i = AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, AbstractAlgebra.LinearAlgebra.transpose!(t_i, cv_set[j]))
+      w = w_i[1]
+      max_w = max(w, max_w)
       add_edge!(res_graph, i, j)
-      weightDict[(i, j)] = w
+      res_graph.edge[i, j] = w
     end
     add_edge!(res_graph, i, p+1)
-    mul!(w_i, v_i, transpose!(t_i, cv_set[i]))
-    w = Int64(w_i[1])
-    weightDict[(i, p+1)] = w
+    w_i = AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, AbstractAlgebra.LinearAlgebra.transpose!(t_i, cv_set[i]))
+    w = w_i[1]
+    res_graph.edge[i, p+1] = w
   end
   a = 1+max_w 
   b = a + 1
   for i = 1:p 
     add_edge!(res_graph, i, p+2)
-    merge!(weightDict, Dict((i, p+2) => a))
+    res_graph.edge[i, p+2] = a
   end
   add_edge!(res_graph, p+1, p+2)
-  merge!(weightDict, Dict((p+1, p+2) => b))
-  label!(res_graph, weightDict, nothing; name=:edge)
+  res_graph.edge[p+1, p+2] = b
   return res_graph
 end
 
+_reduce_characteristic_vectors(cv_set::Vector{ZZMatrix}, L::ZZLat) = _reduce_characteristic_vectors(_convert_cv_set_to_int(cv_set, matrix(ZZ, gram_matrix(L))), L)
 
-function _reduce_characteristic_vectors(cv_set, L::ZZLat)
+function _reduce_characteristic_vectors(cv_set::Vector{Matrix{Int}}, L::ZZLat)
   R, _, _ = root_lattice_recognition_fundamental(L)
   A = basis_matrix(R)
   gram = matrix(ZZ, gram_matrix(L))
+  gram_int = Hecke._int_matrix_with_overflow(gram, ZZ(0))
   B_lat = basis_matrix(L)
   A_lat = solve(B_lat, A)
-  v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
-  w_i = zero_matrix(ZZ, 1, number_of_columns(gram))
-  t_i = zero_matrix(ZZ, number_of_columns(gram), 1)
-  fundamental_root = zero_matrix(ZZ, number_of_columns(A_lat), 1)
-  res::Vector{ZZMatrix} = []
-  #n = maximum(v -> (mul!(v_i, v, gram); mul!(v_i, v_i, transpose!(t_i, v)); return v_i[1]), cv_set)
-  n = maximum(v -> (v*gram*transpose(v))[1], cv_set)
-  if n^2 < typemax(Int)
-    usedMul! = mul!
-  else 
-    usedMul! = LinearAlgebra.mul!
-  end
+  v_i = Matrix{Int}(undef, 1, number_of_columns(gram))
+  t_i = Matrix{Int}(undef, number_of_rows(gram), 1)
+  w_i = Matrix{Int}(undef, 1, 1)
+  fundamental_root = Matrix{Int}(undef, number_of_columns(A_lat), 1)
+  res::Vector{Matrix{Int}} = []
   for v in cv_set
-    usedMul!(w_i, v, gram)
+    AbstractAlgebra.LinearAlgebra.mul!(v_i, v, gram_int)
     #w = v*gram_matrix(L)
-    usedMul!(v_i, w_i, transpose!(t_i, v))
+    AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, AbstractAlgebra.LinearAlgebra.transpose!(t_i, v))
     #v_i = w*transpose(v)
-    if v_i[1] == 1 || v_i[1] == 2
+    if w_i[1] == 1 || w_i[1] == 2
       continue
     end
     in_chamber = true
     for i in 1:number_of_rows(A_lat)
       for j in 1:number_of_columns(A_lat)
-        fundamental_root[j,1] = ZZ(A_lat[i,j])
+        fundamental_root[j,1] = Int(A_lat[i,j])
       end
       #fundamental_root = matrix(ZZ, number_of_columns(A_lat), 1, A_lat[i,:])
-      usedMul!(v_i, w_i, fundamental_root)
+      AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, fundamental_root)
       #x = w*fundamental_root
-      if v_i[1] < 0
+      if w_i[1] < 0
         in_chamber = false
       end
     end
@@ -305,7 +319,10 @@ function _reduce_characteristic_vectors(cv_set, L::ZZLat)
     end
   end
   for i in 1:number_of_rows(A_lat)
-    fundamental_root = matrix(ZZ, 1, number_of_columns(A_lat), A_lat[i,:])
+    fundamental_root = Matrix{Int}(undef, number_of_columns(A_lat), 1)
+    for j in 1:number_of_columns(A_lat)
+      fundamental_root[j,1] = Int(A_lat[i,j])
+    end
     push!(res, fundamental_root)
   end
   return res
