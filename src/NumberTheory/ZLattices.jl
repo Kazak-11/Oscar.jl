@@ -212,6 +212,8 @@ function characteristic_vectors(L::ZZLat)
   return cvL
 end
 
+#_get_canonical_form(A::ZZMatrix, char_vectors_set::Vector{Matrix{Int}}, canonical_ordering::Vector{Int}) = _get_canonical_form(A, [matrix(ZZ, 1, length(v), v) for v in char_vectors_set], canonical_ordering)
+
 function _get_canonical_form(A::ZZMatrix, char_vectors_set::Vector{ZZMatrix}, canonical_ordering::Vector{Int})
   p = length(char_vectors_set)
   filter!(e->e!=p+1 && e!=p+2, canonical_ordering)
@@ -240,6 +242,7 @@ function _get_edge_labeled_graph(cv_set::Vector{ZZMatrix}, gram::ZZMatrix)
   return _get_edge_labeled_graph(cv_set_int, Hecke._int_matrix_with_overflow(gram, tmp))
 end
 
+#_get_edge_labeled_graph(cv_set::Vector{ZZMatrix}, gram::ZZMatrix) = _get_edge_labeled_graph(_convert_cv_set_to_int(cv_set, gram), gram)
 _get_edge_labeled_graph(cv_set::Vector{Matrix{Int}}, gram::ZZMatrix) = _get_edge_labeled_graph(cv_set, Hecke._int_matrix_with_overflow(gram, ZZ(0)))
 
 function _get_edge_labeled_graph(cv_set::Vector{Matrix{Int}}, gram::Matrix{Int})
@@ -275,6 +278,94 @@ function _get_edge_labeled_graph(cv_set::Vector{Matrix{Int}}, gram::Matrix{Int})
   return res_graph
 end
 
+#_reduce_characteristic_vectors(cv_set::Vector{ZZMatrix}, L::ZZLat) = _reduce_characteristic_vectors(_convert_cv_set_to_int(cv_set, matrix(ZZ, gram_matrix(L))), L)
+
+function _reduce_characteristic_vectors_old(cv_set::Vector{ZZMatrix}, L::ZZLat)
+  @info "start reduce time"
+  @time begin
+  R, _, _ = root_lattice_recognition_fundamental(L)
+  A = basis_matrix(R)
+  gram = matrix(ZZ, gram_matrix(L))
+  B_lat = basis_matrix(L)
+  A_lat = solve(B_lat, A)
+  v_i = zero_matrix(ZZ, 1, number_of_columns(gram))
+  t_i = zero_matrix(ZZ, number_of_rows(gram), 1)
+  w_i = zero_matrix(ZZ, 1, 1)
+  fundamental_roots = [matrix(ZZ, 1, number_of_columns(A_lat), A_lat[i,:]) for i in 1:number_of_rows(A_lat)]
+  res::Vector{ZZMatrix} = []
+  end
+  @info "loop reduce time"
+  @time begin
+  for v in cv_set
+    mul!(v_i, v, gram)
+    mul!(w_i, v_i, transpose!(t_i, v))
+    if w_i[1] == 1 || w_i[1] == 2
+      continue
+    end
+    in_chamber = true
+    for f_root in fundamental_roots
+      mul!(w_i, v_i, f_root)
+      if w_i[1] < 0
+        in_chamber = false
+        break
+      end
+    end
+    if in_chamber
+      push!(res, v)
+    end
+  end
+end
+  @info "end reduce time"
+  @time begin
+  for f_root in fundamental_roots #need to add transpose
+    push!(res, f_root)
+  end
+  end
+  return res
+end
+
+function _reduce_characteristic_vectors(cv_set::Vector{ZZMatrix}, L::ZZLat)
+  R, _, _ = root_lattice_recognition_fundamental(L)
+  A = basis_matrix(R)
+  gram = matrix(ZZ, gram_matrix(L))
+  tmp = ZZ(0)
+  gram_int = Hecke._int_matrix_with_overflow(gram, tmp)
+  B_lat = basis_matrix(L)
+  A_lat = change_base_ring(ZZ, solve(B_lat, A))
+  v_i = Matrix{Int}(undef, 1, number_of_columns(gram))
+  t_i = Matrix{Int}(undef, number_of_rows(gram), 1)
+  w_i = Matrix{Int}(undef, 1, 1)
+  fundamental_roots = [v for v in eachrow(Hecke._int_matrix_with_overflow(A_lat, tmp))]
+  res::Vector{ZZMatrix} = []
+  for v in cv_set
+    v_int = Hecke._int_matrix_with_overflow(v, tmp)
+    AbstractAlgebra.LinearAlgebra.mul!(v_i, v_int, gram_int)
+    AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, AbstractAlgebra.LinearAlgebra.transpose!(t_i, v_int))
+    if w_i[1] == 1 || w_i[1] == 2
+      continue
+    end
+    in_chamber = true
+    for f_root in fundamental_roots
+      AbstractAlgebra.LinearAlgebra.mul!(w_i, v_i, f_root)
+      if w_i[1] < 0
+        in_chamber = false
+        break
+      end
+    end
+    if in_chamber
+      push!(res, v)
+    end
+  end
+  #for f_root in fundamental_roots
+  #  push!(res, matrix(ZZ, f_root))
+  #end
+  for i in 1:number_of_rows(A_lat)
+    push!(res, matrix(ZZ, 1, number_of_columns(A_lat), A_lat[i,:]))
+  end
+
+  return res
+end
+
 """
     canonical_form(L::ZZLat) -> ZZMatrix
 Return the canonical form of ``L``. The form is canonical in the sense, that two isomorphic latticies would have the same canonical form.
@@ -288,6 +379,8 @@ We follow ideas of Sikirić, Haensch, Voight and van Woerden [SHVW20](@cite).
 function canonical_form(L::ZZLat)
   gram = matrix(ZZ, gram_matrix(L))
   char_vectors_set = characteristic_vectors(L)
+  #char_vectors_set = _reduce_characteristic_vectors_old(char_vectors_set, L)
+  char_vectors_set = _reduce_characteristic_vectors(char_vectors_set, L)
   graph = _get_edge_labeled_graph(char_vectors_set, gram) # transform from adjenctcy matrix A to edge-vertex weighted graph Ga, then to edge weighted graph T1(Ga)
   can_order = _canonical_perm(graph; label=:edge) #_canonical_perm uses _edge_label_to_vertex_label themselfs
   return _get_canonical_form(gram, char_vectors_set, can_order)
