@@ -19,6 +19,31 @@
   @test length(short_vectors(rescale(K,-1), 2))==0
 end
 
+@testset "ampleness on K3 surfaces" begin
+  # ampleness of classes in the Picard lattice of an elliptic K3 with a section
+  S = integer_lattice(gram=ZZ[0 1; 1 -2])
+  @test is_ample(S, QQ[3 1])
+  @test is_ample(S, QQFieldElem[3, 1])
+  @test !is_ample(S, QQ[2 1])   # orthogonal to the section
+  @test !is_ample(S, QQ[1 0])   # fiber class, square zero
+  @test !is_ample(S, QQ[0 1])   # negative square
+  @test is_ample(S, QQ[3 2])    # ample for another marking
+  h = QQ[4 1]
+  @test is_ample(S, QQ[3 1], h)
+  @test is_ample(S, QQ[3 1], QQ[5 1])
+  @test !is_ample(S, QQ[3 2], h)  # separated from h by the section
+  @test !is_ample(S, -QQ[3 1], h) # wrong component of the positive cone
+  @test !is_ample(S, QQ[2 1], h)
+  @test_throws ArgumentError is_ample(S, QQ[3 1], QQ[2 1])
+  @test_throws ArgumentError is_ample(S, QQ[1//2 1])
+
+  NS = integer_lattice(gram=ZZ[0 1 0 0; 1 -2 0 0; 0 0 -2 1; 0 0 1 -2])
+  h = Oscar.ample_class(NS)
+  @test is_ample(NS, h)
+  @test is_ample(NS, h, h)
+  @test is_ample(NS, 2*h, h)
+end
+
 
 @testset "walls of chamber" begin
   S = integer_lattice(gram=QQ[-2 1 0 0; 1 -2 1 1; 0 1 -2 1; 0 1 1 -2])

@@ -1908,6 +1908,84 @@ function ample_class(S::ZZLat)
   end
 end
 
+@doc raw"""
+    is_ample(S::ZZLat, L::QQMatrix) -> Bool
+    is_ample(S::ZZLat, L::QQMatrix, h::QQMatrix) -> Bool
+
+Return whether the class `L` of the Picard lattice `S` of a K3 surface is
+ample.
+
+The classes `L` and `h` are row matrices (or vectors) with respect to the
+ambient space of `S`, and `S` must be even and hyperbolic.
+
+On a K3 surface the ample cone is the interior of the Weyl chamber containing
+an ample class, cut out inside the positive cone by the hyperplanes orthogonal
+to the ``(-2)``-vectors (by Riemann-Roch every ``(-2)``-vector is, up to sign,
+effective; see Saint-Donat, *Projective models of K-3 surfaces*, (2.1), (2.5)
+and (8.1)). Therefore:
+
+- With a reference ample class `h`, `L` is ample if and only if
+  ``L^2 > 0``, ``L.h > 0``, no ``(-2)``-vector is orthogonal to `L` and no
+  ``(-2)``-vector separates `L` from `h`.
+- Without `h`, the ample cone is only known up to the action of the Weyl group
+  and ``\pm 1``. Then this function returns whether ``L^2 > 0`` and
+  ``L^\perp`` contains no ``(-2)``-vectors, i.e. whether `L` is ample for a
+  suitable choice of the ample cone (marking).
+
+# Examples
+```jldoctest
+julia> S = integer_lattice(gram=ZZ[0 1; 1 -2]);
+
+julia> is_ample(S, QQ[3 1])
+true
+
+julia> is_ample(S, QQ[2 1])
+false
+
+julia> is_ample(S, QQ[3 1], QQ[4 1])
+true
+
+julia> is_ample(S, QQ[3 2], QQ[4 1])
+false
+```
+"""
+function is_ample(S::ZZLat, L::QQMatrix)
+  _is_ample_check_input(S, L)
+  V = ambient_space(S)
+  inner_product(V, L, L)[1, 1] > 0 || return false
+  return _has_no_orthogonal_roots(S, L)
+end
+
+function is_ample(S::ZZLat, L::QQMatrix, h::QQMatrix)
+  _is_ample_check_input(S, L)
+  _is_ample_check_input(S, h)
+  V = ambient_space(S)
+  @req inner_product(V, h, h)[1, 1] > 0 && _has_no_orthogonal_roots(S, h) "h must be ample"
+  inner_product(V, L, L)[1, 1] > 0 || return false
+  inner_product(V, L, h)[1, 1] > 0 || return false
+  _has_no_orthogonal_roots(S, L) || return false
+  # (-2)-vectors r with r.h > 0 and r.L < 0
+  return isempty(separating_hyperplanes(S, L, h, -2))
+end
+
+is_ample(S::ZZLat, L::Vector{QQFieldElem}) = is_ample(S, matrix(QQ, 1, degree(S), L))
+
+is_ample(S::ZZLat, L::Vector{QQFieldElem}, h::Vector{QQFieldElem}) = is_ample(S, matrix(QQ, 1, degree(S), L), matrix(QQ, 1, degree(S), h))
+
+function _is_ample_check_input(S::ZZLat, L::QQMatrix)
+  @req is_even(S) "lattice must be even"
+  @req signature_tuple(S)[1] == 1 "lattice must be hyperbolic"
+  @req nrows(L) == 1 && ncols(L) == degree(S) "class must be a row matrix in the ambient space of the lattice"
+  @req can_solve(basis_matrix(S), L; side = :left) && denominator(solve(basis_matrix(S), L; side = :left)) == 1 "class must lie in the lattice"
+end
+
+# whether the orthogonal complement of `L` in `S` contains no (-2)-vectors
+function _has_no_orthogonal_roots(S::ZZLat, L::QQMatrix)
+  K = orthogonal_submodule(S, lattice(ambient_space(S), L))
+  rank(K) == 0 && return true
+  return isempty(short_vectors(rescale(K, -1), 2))
+end
+
 
 ################################################################################
 #  Elliptic Fibrations
