@@ -1979,6 +1979,102 @@ function _is_ample_check_input(S::ZZLat, L::QQMatrix)
   @req can_solve(basis_matrix(S), L; side = :left) && denominator(solve(basis_matrix(S), L; side = :left)) == 1 "class must lie in the lattice"
 end
 
+@doc raw"""
+    is_very_ample(S::ZZLat, L::QQMatrix) -> Bool
+    is_very_ample(S::ZZLat, L::QQMatrix, h::QQMatrix) -> Bool
+
+Return whether the class `L` of the Picard lattice `S` of a K3 surface is
+very ample.
+
+The classes `L` and `h` are row matrices (or vectors) with respect to the
+ambient space of `S`, and `S` must be even and hyperbolic. Ampleness is decided
+as in `is_ample(S, L[, h])`: with respect to the reference
+ample class `h` if given, and otherwise up to the action of the Weyl group
+and ``\pm 1``.
+
+By Saint-Donat, *Projective models of K-3 surfaces*, (5.1), (5.2), (6.1) and
+(8.1), an ample class `L` is very ample if and only if
+- ``L^2 \geq 4``,
+- there is no ``E \in S`` with ``E^2 = 0`` and ``E.L \in \{1, 2\}``
+  (otherwise ``|L|`` has a fixed component or is hyperelliptic),
+- there is no ``B \in S`` with ``L = 2B`` and ``B^2 = 2``
+  (otherwise ``\varphi_L`` is a double cover of the Veronese surface).
+
+# Examples
+```jldoctest
+julia> S = integer_lattice(gram=ZZ[4;;]);
+
+julia> is_very_ample(S, QQ[1;;])
+true
+
+julia> T = integer_lattice(gram=ZZ[2;;]);
+
+julia> is_very_ample(T, QQ[1;;]), is_very_ample(T, QQ[2;;]), is_very_ample(T, QQ[3;;])
+(false, false, true)
+
+julia> U = integer_lattice(gram=ZZ[0 1; 1 -2]);
+
+julia> is_very_ample(U, QQ[6 2]), is_very_ample(U, QQ[9 3])
+(false, true)
+```
+"""
+function is_very_ample(S::ZZLat, L::QQMatrix)
+  is_ample(S, L) || return false
+  return _is_very_ample_given_ample(S, L)
+end
+
+function is_very_ample(S::ZZLat, L::QQMatrix, h::QQMatrix)
+  is_ample(S, L, h) || return false
+  return _is_very_ample_given_ample(S, L)
+end
+
+is_very_ample(S::ZZLat, L::Vector{QQFieldElem}) = is_very_ample(S, matrix(QQ, 1, degree(S), L))
+
+is_very_ample(S::ZZLat, L::Vector{QQFieldElem}, h::Vector{QQFieldElem}) = is_very_ample(S, matrix(QQ, 1, degree(S), L), matrix(QQ, 1, degree(S), h))
+
+function _is_very_ample_given_ample(S::ZZLat, L::QQMatrix)
+  V = ambient_space(S)
+  d = inner_product(V, L, L)[1, 1]
+  # L^2 = 2: double plane
+  d >= 4 || return false
+  # L = 2B with B^2 = 2: double cover of the Veronese surface
+  if d == 8 && _in_lattice(S, QQ(1, 2) * L)
+    return false
+  end
+  # E^2 = 0 and E.L = 1 (fixed component) or E.L = 2 (hyperelliptic)
+  return !_has_isotropic_vector_of_degree(S, L, 1) && !_has_isotropic_vector_of_degree(S, L, 2)
+end
+
+function _in_lattice(S::ZZLat, v::QQMatrix)
+  fl, x = can_solve_with_solution(basis_matrix(S), v; side = :left)
+  return fl && is_one(denominator(x))
+end
+
+# Whether there is v in S with v^2 = 0 and v.L = k, where L^2 > 0.
+# Write v = (k/L^2) L + w with w in the projection W of S to L^\perp;
+# then w^2 = -k^2/L^2 and W is negative definite.
+function _has_isotropic_vector_of_degree(S::ZZLat, L::QQMatrix, k::Int)
+  V = ambient_space(S)
+  d = inner_product(V, L, L)[1, 1]
+  B = basis_matrix(S)
+  n = rank(S)
+  n == 1 && return false
+  prW = reduce(vcat, [B[i:i, :] - inner_product(V, B[i:i, :], L)[1, 1]//d * L for i in 1:n])
+  W = lattice(V, prW; isbasis = false)
+  c = denominator(gram_matrix(W))
+  Wneg = integer_lattice(gram = -c * gram_matrix(W))
+  target = c * k^2//d
+  is_integral(target) || return false
+  bW = basis_matrix(W)
+  # the iterator returns only one vector of each pair {w, -w}
+  for (x, _) in short_vectors_iterator(Wneg, ZZ(target), ZZ(target))
+    w = matrix(QQ, 1, nrows(bW), x) * bW
+    _in_lattice(S, k//d * L + w) && return true
+    _in_lattice(S, k//d * L - w) && return true
+  end
+  return false
+end
+
 # whether the orthogonal complement of `L` in `S` contains no (-2)-vectors
 function _has_no_orthogonal_roots(S::ZZLat, L::QQMatrix)
   K = orthogonal_submodule(S, lattice(ambient_space(S), L))

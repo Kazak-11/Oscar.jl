@@ -44,6 +44,38 @@ end
   @test is_ample(NS, 2*h, h)
 end
 
+@testset "very ampleness on K3 surfaces" begin
+  # Saint-Donat's criteria for very ampleness of ample classes
+  @test is_very_ample(integer_lattice(gram=ZZ[4;;]), QQ[1;;])  # quartic
+  T = integer_lattice(gram=ZZ[2;;])
+  @test !is_very_ample(T, QQ[1;;])  # double plane
+  @test !is_very_ample(T, QQ[2;;])  # twice a genus 2 class
+  @test is_very_ample(T, QQ[3;;])
+
+  U = integer_lattice(gram=ZZ[0 1; 1 -2])
+  L = QQ[3 1]
+  @test !is_very_ample(U, L)    # E.L = 1, fixed component
+  @test !is_very_ample(U, 2*L)  # E.L = 2, hyperelliptic
+  @test is_very_ample(U, 3*L)
+  @test is_very_ample(U, QQFieldElem[9, 3])
+  @test is_very_ample(U, 3*L, QQ[4 1])
+  @test !is_very_ample(U, QQ[9 6], QQ[4 1])  # not ample w.r.t. h
+  @test !is_very_ample(U, QQ[2 1])           # not ample
+
+  # E.L = 3 does not obstruct very ampleness
+  S = integer_lattice(gram=ZZ[0 3; 3 0])
+  @test is_very_ample(S, QQ[1 1])
+  # E.L = 2 with E not part of a basis
+  S = integer_lattice(gram=ZZ[0 2; 2 0])
+  @test !is_very_ample(S, QQ[1 1])
+  @test !is_very_ample(S, QQ[1 2])
+  @test is_very_ample(S, QQ[2 2])
+
+  NS = integer_lattice(gram=ZZ[0 1 0 0; 1 -2 0 0; 0 0 -2 1; 0 0 1 -2])
+  h = Oscar.ample_class(NS)
+  @test is_very_ample(NS, 3*h)
+end
+
 
 @testset "walls of chamber" begin
   S = integer_lattice(gram=QQ[-2 1 0 0; 1 -2 1 1; 0 1 -2 1; 0 1 1 -2])
